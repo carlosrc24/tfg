@@ -1,0 +1,43 @@
+services:
+  # ─────────────────────────────────────────────
+  # Python Worker: Data ingestion + AI + Alpaca
+  # ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tfg_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - tfg_network
+
+  # ─────────────────────────────────────────────
+  # Next.js Dashboard
+  # ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tfg_frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Server-side proxy target: Next.js → FastAPI (internal Docker network)
+      - BACKEND_API_URL=http://backend:8000
+    ports:
+      - "3000:3000"
+    networks:
+      - tfg_network
+    depends_on:
+      - backend
+
+networks:
+  tfg_network:
+    driver: bridge

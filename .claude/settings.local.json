@@ -1,0 +1,7 @@
+{
+  "enabledMcpjsonServers": [
+    "supabase",
+    "chrome-devtools",
+    "playwright"
+  ]
+}
