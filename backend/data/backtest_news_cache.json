@@ -157872,5 +157872,110 @@
       "Cathie Wood Pours $8.5M Into Cerebras Amid Buzz Around AI Chip Upstart, Won't Stop Dumping AMD"
     ],
     "sentiment_score": 0.350621
+  },
+  "QQQ_2026-05-28": {
+    "headlines": [
+      "Triple Manias Take A Hit As US And Iran Exchange Strikes But Cooler PCE May Reignite Momentum",
+      "S&P 500 Hits Record Highs, Snowflake Jumps 37% On AI Boom: Stock Market Today",
+      "Stock Market Today: S&P 500, Dow, Nasdaq Futures Fall As Hot PCE Inflation Clouds Fed Rate Cut Hopes— Snowflake, Salesforce In Focus (UPDATED)"
+    ],
+    "sentiment_score": -0.175589
+  },
+  "SPY_2026-05-28": {
+    "headlines": [
+      "Trump Approval Hits New Low Of 39%: Record High Stock Prices Not Impressing Majority Of Voters",
+      "Iran's State Media Says Explosion Sound Heard In Bushehr; Iran's State Media Says Explosion Sounds Caused By Air Defenses Engaging With Aircrafts",
+      "Reuters Cites Iran's Fars News Agency Saying Iran's Armed Forces Carries Out A Missile Launch Operation From Southern Regions Of The Country Toward Specified Targets",
+      "U.S. Issues General License Authorizing Certain Deals For Negotiation Of And Entry Into Contingent Contracts For Sale Of Lukoil International",
+      "Small-Cap ETFs Are Beating The S&P 500 — But A Quality Problem May Be Building Underneath",
+      "Triple Manias Take A Hit As US And Iran Exchange Strikes But Cooler PCE May Reignite Momentum",
+      "White House Press Briefing With U.S. Treasury Secretary Bessent Says Great Collaboration With All AI Labs; On AI Executive Order, Says Working Closely With AI Labs On Solution",
+      "U.S. FDA Advisers Vote In Favor Of Recommending Covid Vaccines Target JN.1 Lineage XFG Variant For 2026-27 Campaign",
+      "White House Press Briefing With U.S. Treasury Secretary Bessent Says Believe Fed's Warsh Will Do The Right Thing To Balance Inflation And Growth; Had Breakfast Thursday Morning With Warsh",
+      "White House Press Briefing With U.S. Treasury Secretary Bessent, On Oman, Says Had A Call With Omani Ambassador Thursday Morning; Omani Ambassador Assured There Are No Plans To Toll The Strait",
+      "Iran's Tasnim Says Reports By Western Sources Saying MOU Between Iran And U.S. Has Been Finalized Is Not True; Iran Has Not Informed The Pakistani Mediator That The Text Has Been Finalized, Once It Is Finalized, Iran Will Announce The Matter To Pakistani Mediator And The Public",
+      "Iran's Tasnim Citing Source Close To The Negotiating Team Says The Text Of The Potential Memorandum Of Understanding Has Not Yet Been Finalized Or Confirmed Yet",
+      "Higher Inflation, Slower Growth: Why Hormuz Is Silently Choking The US Economy",
+      "Fed's Musalem In Bloomberg TV Interview, Says Reducing Banking System's Demand For Reserves Would Be A Smoother Path Toward Smaller Balance Sheet Than Shrinking The Supply; The Possibility That We Would Consider An Interest Rate Increase Is Greater Than Zero; Warsh Will Be Asking Profound And Deep Questions About How Fed Operates",
+      "Fed's Musalem In Bloomberg TV Interview, Says Bond Markets Are Seeing Resilient Economy, Higher Expected Inflation; Most Of Recent Bond Market Move Is From Higher Expected Neutral Rate",
+      "Fed's Musalem In Bloomberg TV Interview, Says Thought In April That Easing Bias In Statement No Longer Consistent; Whether Fed Hike, Cut Or Hold Is Necessary Will Depend On What Happens With Economy",
+      "Canada PM Carney Says It Remains The Case There Is Still Substantial Trade Between U.S. And Canada; Canada Can Help U.S. On Energy Needs; Working Very Well With U.S. On Critical Minerals",
+      "Canada PM Carney Says U.S. Future Should Include A New Partnership With Canada; Future U.S.-Canada Partnership Should Re-Imagine Cooperation In Specific Sectors Deeply Challenged By Global Competition",
+      "Canada PM Carney Says We Have To Continue To Invest In Global Public Goods In Global Climate And Development Finance, Even As Others Are Pulling Sharply Back; World Is Undergoing A Rupture Today; Canada Strong Will Help Make America Great Again; Canada Is On Route To Spend 5% Of GDP On Defense Consistent With NATO Schedule; We Have Made Specific, Practical Proposals To The U.S. Administration",
+      "EIA Weekly Distillates Stocks 2.107M Barrel Draw Vs 2.000M Barrel Draw Est.",
+      "Dallas Fed PCE For April 2.50% Vs 2.90% Prior",
+      "Chevron CEO Mike Wirth Speaking At Bernstein Strategic Decisions Conference Says He Expects Upward Pressure On Oil Prices Heading Into June And July",
+      "U.S., Mexico, And Canada Release Trilateral Statement Announcing Aligned Travel Measures For People Coming From Regions At-Risk From Ebola",
+      "U.S. Treasury Secretary Scott Bessent Says In X Post 'Oman, in particular, should know that the U.S. Treasury will aggressively target any actors involved - directly or indirectly - in facilitating tolls for the Strait and any willing partners will be penalized.'",
+      "Fed's Musalem Says There Is A Scenario Where We See A Growth Slowdown In H2 2026; If That Happens And Inflation Falls, We Could See A Rate Cut; Risks Are Currently Tilted To Inflation Side",
+      "Fed's Musalem Says There Is A Scenario Where The Economy Might Require A Rate Hike; Would Be Concerning If We Don't See Disinflation In 1-2 Quarters; Higher Inflation Expectations Also A Concern",
+      "Fed's Musalem Says Fed's Real Policy Rate Is Below Long-run Neutral Rate, Longer-term Inflation Expectations Are Drifting Up, Labor Market Is Stable; Caution Warranted In The Face Of Upward Inflation Pressures; Need Vigilant Focus On Returning Inflation To Fed's 2% Target; Need Vigilant Focus On Returning Inflation To Fed's 2% Target; He Is Prepared To Adjust Policy Views If Evidence Becomes Clear That Higher Productivity Growth Is Likely To Ease Inflation Pressures",
+      "'U.S. and Iran reach deal but need Trump's final approval, officials say'-Axios",
+      "USA New Home Sales (MoM) For April -6.2% VS 3.4% Prior",
+      "USA New Home Sales For April 622K Vs 661K Est",
+      "Fed's Williams Says Persistently High Inflation Would Call For Higher Rates, Not Where We Are Today",
+      "Fed's Williams Says Supply Chain Disruptions Are A Concern And They Are Happening Due To War; The Fed Must Be Clear It Is Getting Inflation To 2%; The Path For Monetary Policy Depends On Data, Outlook And Risks",
+      "Fed's Williams Says In Near Term, See Inflation Around 4% And Core Inflation Around 3%; See Elevated Near Term Inflation Expectations But Long Term Stable; Anchoring Inflation Expectations Is Critical; Tariff Impact Should Peak In Next Few Months",
+      "Fed's Williams Says Some Gains In U.S. Productivity Predate AI, Its Effect On Productivity Depends On Nature And Duration; U.S. Has A Solid Economy, Underlying Labor Market Is Doing Well; Higher Productivity Rates Can Raise Real Interest Rate",
+      "Stock Market Today: S&P 500, Dow, Nasdaq Futures Fall As Hot PCE Inflation Clouds Fed Rate Cut Hopes— Snowflake, Salesforce In Focus (UPDATED)",
+      "USA Durables Excluding Defense (MoM) For April 8.1% Vs -0.3% Prior",
+      "USA Building Permits (MoM) For April 4.4% Vs -11.5% Prior",
+      "USA Building Permits For April 1.423M Vs 1.442M Est.; 1.442M Prior",
+      "PCE price index (MoM) For April 0.4% Vs 0.5% Est.",
+      "PCE Price index (YoY) For April 3.8% Vs 3.8% Est.",
+      "USA Core Durable Goods Orders (MoM) For April 1.1% Vs 0.5% Est.",
+      "USA Personal Spending (MoM) For April 0.5% Vs 0.5% Est.",
+      "GDP Price Index (QoQ) For Q1 3.5% Vs 3.6% Est.",
+      "USA Durable Goods Orders (MoM) For April 7.9% Vs 4.0% Est.",
+      "USA Core PCE Price Index (YoY) For April 3.3% Vs 3.3% Est.",
+      "USA Continuing Jobless Claims 1,786K Vs 1,780K Est.",
+      "USA Core PCE Price Index (MoM) For April 0.2% Vs 0.3% Est.",
+      "USA Core PCE Prices (Q1) 4.4% Vs 4.3% Est.",
+      "GDP (QoQ) For Q1 1.6% Vs 2.0% Est.",
+      "USA Initial Jobless Claims 215K Vs 211K Est."
+    ],
+    "sentiment_score": -0.209494
+  },
+  "IWM_2026-05-28": {
+    "headlines": [
+      "Small-Cap ETFs Are Beating The S&P 500 — But A Quality Problem May Be Building Underneath",
+      "S&P 500 Hits Record Highs, Snowflake Jumps 37% On AI Boom: Stock Market Today"
+    ],
+    "sentiment_score": -0.061281
+  },
+  "GLD_2026-05-28": {
+    "headlines": [
+      "Crypto Meets Safe Havens: Direxion Launches 2X Bitcoin, Ether, Gold ETFs",
+      "Fed's Favorite Inflation Gauge Hits 3.8%, Highest Since May 2023 (UPDATED)",
+      "Gold Falls To Two-Month Low As Iran War Fears Send Oil Prices, Dollar Climbing",
+      "FBI Finds $40 Million In Gold, Rolexes And Cash At Ex-CIA Official's Home As Bullion Demand Surges"
+    ],
+    "sentiment_score": -0.15702
+  },
+  "XLF_2026-05-28": {
+    "headlines": [
+      "S&P 500 Hits Record Highs, Snowflake Jumps 37% On AI Boom: Stock Market Today",
+      "Leading And Lagging Sectors For May 28, 2026"
+    ],
+    "sentiment_score": -0.02806
+  },
+  "SMH_2026-05-28": {
+    "headlines": [
+      "JPMorgan's AI Call Shifts ETF Focus Beyond Nvidia And Microsoft To Software Underdogs",
+      "What's Going On With AMD Stock Thursday?"
+    ],
+    "sentiment_score": -0.241403
+  },
+  "XLE_2026-05-28": {
+    "headlines": [
+      "Leading And Lagging Sectors For May 28, 2026"
+    ],
+    "sentiment_score": -0.875036
+  },
+  "ARKK_2026-05-28": {
+    "headlines": [
+      "Nancy Pelosi Favorite Tempus AI Gets Another Ark Boost, Cathie Wood Also Shops For $6.6 Million Worth Of Amazon Stock"
+    ],
+    "sentiment_score": 0.598672
   }
 }

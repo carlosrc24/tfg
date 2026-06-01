@@ -193,7 +193,7 @@ export default function BacktestDashboard() {
             )}
             {data && data.dataPoints > 0 && (
               <span className="inline-flex items-center gap-2 text-xs font-semibold bg-emerald-900/30 border border-emerald-700/30 text-emerald-400 px-3 py-1.5 rounded-full">
-                📅 {data.dataPoints} días simulados
+                {data.dataPoints} días simulados
               </span>
             )}
           </div>
@@ -381,6 +381,7 @@ export default function BacktestDashboard() {
           <PositionsTracker
             runId={activeRunId}
             refreshKey={tradesRefreshKey}
+            isRunning={isRunning}
           />
         </div>
       </div>

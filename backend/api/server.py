@@ -100,6 +100,9 @@ class BacktestPayload(BaseModel):
     confirmation_days: int = Field(2, ge=1, le=5)
     alpha_factor: float = Field(1.0, ge=0.5, le=1.5)
     beta_factor: float = Field(1.0, ge=0.0, le=2.0)
+    max_allocation_pct: float = Field(0.20, ge=0.10, le=0.50)
+    take_profit_pct: float = Field(0.0, ge=0.0, le=0.50)
+    sentiment_weight: float = Field(0.0, ge=0.0, le=1.0)
 
     @field_validator("trend_sma")
     @classmethod
@@ -157,6 +160,9 @@ def _run_backtest_task(run_id: str, params: BacktestPayload) -> None:
             confirmation_days=params.confirmation_days,
             alpha_factor=params.alpha_factor,
             beta_factor=params.beta_factor,
+            max_allocation_pct=params.max_allocation_pct,
+            take_profit_pct=params.take_profit_pct,
+            sentiment_weight=params.sentiment_weight,
             run_id=run_id,
             show_progress=False,
             log_flush_fn=handler._flush_to_db,

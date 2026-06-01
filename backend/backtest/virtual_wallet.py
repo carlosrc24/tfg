@@ -1,15 +1,16 @@
 """
-backtest/virtual_wallet.py – In-memory paper broker for backtesting (V7)..
+backtest/virtual_wallet.py – In-memory paper broker for backtesting (V7).
 
-Long-Only Sector Rotation strategy. No short selling.
+Long-Only strategy. No short selling.
 The wallet state for any asset alternates strictly between LONG and CASH.
 
 Dynamic capital limit (from initial_balance):
-max_long_usd = initial_balance × 20%
+max_long_usd = initial_balance × max_allocation_pct   (default 20%)
 
-Trailing Stop – two tiers, percentage-based (no ATR constants):
-    LONG:  Tier-1 @ price ≤ highest × 0.85 → sell 70%
-           Tier-2 @ price ≤ highest × 0.80 → sell remaining 30%
+Exit rules (in evaluation order inside check_trailing_stop):
+  1. Take-Profit  @ price ≥ entry × (1 + take_profit_pct)  → sell 50% (fires once)
+  2. Trailing Stop Tier-1 @ price ≤ highest × 0.85          → sell 70%
+  3. Trailing Stop Tier-2 @ price ≤ highest × 0.80          → sell remaining 30%
 
 All thresholds come from the engine and reflect UI slider values.
 """
@@ -69,6 +70,8 @@ class VirtualWallet:
         beta_factor: float = 1.0,
         min_holding_days: int = 3,
         buy_threshold: float = BUY_THRESHOLD,
+        max_allocation_pct: float = 0.20,
+        take_profit_pct: float = 0.0,
     ) -> None:
         self.balance: float = initial_balance
         self.initial_balance: float = initial_balance
@@ -76,15 +79,18 @@ class VirtualWallet:
         self.beta_factor: float = beta_factor
         self.min_holding_days: int = min_holding_days
         self.buy_threshold: float = buy_threshold
+        self.max_allocation_pct: float = max_allocation_pct
+        self.take_profit_pct: float = take_profit_pct
 
-        # Dynamic long cap — 20% of initial capital
-        self.max_long_usd: float = round(initial_balance * 0.20, 2)
+        # Dynamic long cap — max_allocation_pct of initial capital
+        self.max_long_usd: float = round(initial_balance * max_allocation_pct, 2)
 
         self.positions: dict[str, Position] = {}
 
-        # Trailing stop state — reset on full close
+        # Trailing stop & take-profit state — reset on full close
         self.highest_price_seen:  dict[str, float] = {}   # long peak
         self.stop_tier_triggered: dict[str, bool]  = {}   # True after Tier-1 fires
+        self.take_profit_fired:   dict[str, bool]  = {}   # True after take-profit fires
 
         # Time-lock state
         self.last_order_date: dict[str, datetime.date] = {}
@@ -128,6 +134,7 @@ class VirtualWallet:
     def _clear_trailing_state(self, symbol: str) -> None:
         self.highest_price_seen.pop(symbol, None)
         self.stop_tier_triggered.pop(symbol, None)
+        self.take_profit_fired.pop(symbol, None)
         self.last_order_date.pop(symbol, None)
 
     # ── Trade execution primitives ─────────────────────────────────────────────
@@ -204,6 +211,24 @@ class VirtualWallet:
                 return []
 
         records: list[TradeRecord] = []
+
+        # ── Take-profit (fires once per position lifecycle) ───────────────────
+        if self.take_profit_pct > 0 and not self.take_profit_fired.get(symbol, False):
+            tp_level = pos.entry_price * (1.0 + self.take_profit_pct)
+            if close_price >= tp_level:
+                qty_50 = round(pos.qty * 0.50, 4)
+                if qty_50 < 0.01:
+                    qty_50 = pos.qty
+                logger.info(
+                    "[%s] TAKE-PROFIT: close=%.2f ≥ entry×%.2f=%.2f "
+                    "— selling 50%% (%.4f shares)",
+                    symbol, close_price, 1.0 + self.take_profit_pct, tp_level, qty_50,
+                )
+                records.append(self.sell(symbol, qty_50, execution_price, "SELL"))
+                if symbol in self.positions:
+                    self.take_profit_fired[symbol] = True
+
+        # ── Percentage trailing stop ───────────────────────────────────────────
         tier1_already = self.stop_tier_triggered.get(symbol, False)
         peak = self.highest_price_seen.get(symbol, pos.entry_price)
         tier1_level = peak * LONG_TIER1_FACTOR    # peak × 0.85

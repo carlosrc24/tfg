@@ -218,6 +218,9 @@ def run_backtest(
     confirmation_days: int = 2,
     alpha_factor: float = 1.0,
     beta_factor: float = 1.0,
+    max_allocation_pct: float = 0.20,
+    take_profit_pct: float = 0.0,
+    sentiment_weight: float = 0.0,
     run_id: str | None = None,
     show_progress: bool = True,
     log_flush_fn=None,
@@ -231,7 +234,6 @@ def run_backtest(
     # Compute effective buy threshold from alpha_factor: 0.60 / alpha_factor
     # clamped to [0.35, 0.90] so it stays meaningful
     effective_buy_threshold = round(min(max(0.60 / alpha_factor, 0.35), 0.90), 4)
-    effective_buy_aggressive = round(effective_buy_threshold + 0.05, 4)
 
     logger.info("═══════════════════════════════════════════")
     logger.info("  BACKTEST ENGINE  %s → %s", start, end)
@@ -242,6 +244,9 @@ def run_backtest(
     logger.info("  Confirm days    : %d", confirmation_days)
     logger.info("  Alpha factor    : %.2f → buy threshold %.2f", alpha_factor, effective_buy_threshold)
     logger.info("  Beta factor     : %.2f", beta_factor)
+    logger.info("  Max allocation  : %.0f%%", max_allocation_pct * 100)
+    logger.info("  Take profit     : %.0f%%", take_profit_pct * 100)
+    logger.info("  Sentiment weight: %.2f (ω)", sentiment_weight)
     logger.info("  Run ID          : %s", run_id or "CLI")
     logger.info("  Quant features  : Beta CAPM · GBM Vol · Sentiment EMA-5")
     logger.info("  Filters         : SMA-%d macro · Hysteresis ±5%% (uniform, no bypass)", trend_sma)
@@ -335,6 +340,8 @@ def run_backtest(
         beta_factor=beta_factor,
         min_holding_days=min_holding_days,
         buy_threshold=effective_buy_threshold,
+        max_allocation_pct=max_allocation_pct,
+        take_profit_pct=take_profit_pct,
     )
 
     # ── 7. Quant state: sentiment EMA and last-prob per symbol ────────────────
@@ -452,6 +459,16 @@ def run_backtest(
 
                 # Model prediction + Price>SMA-100 trend filter
                 prediction_prob, trend_bullish = predict_proba_filtered(features)
+
+                # Multimodal fusion: blend LightGBM prob with FinBERT sentiment EMA
+                if sentiment_weight > 0.0:
+                    norm_sentiment = (sentiment_ema[sym] + 1.0) / 2.0
+                    prediction_prob = round(
+                        (1.0 - sentiment_weight) * prediction_prob
+                        + sentiment_weight * norm_sentiment,
+                        4,
+                    )
+
                 _day_probs.append(round(prediction_prob, 3))
                 _signal_stats["total"] += 1
                 if prediction_prob >= effective_buy_threshold:
@@ -629,7 +646,10 @@ if __name__ == "__main__":
     parser.add_argument("--min-holding-days", type=int,   default=3,         help="Minimum holding days before sell fires.")
     parser.add_argument("--confirmation-days",type=int,   default=2,         help="Consecutive days above threshold for BUY confirmation.")
     parser.add_argument("--alpha-factor",     type=float, default=1.0,       help="AI aggressiveness (scales buy threshold as 0.60/alpha).")
-    parser.add_argument("--beta-factor",      type=float, default=1.0,       help="Volatility appetite (scales order size by beta).")
+    parser.add_argument("--beta-factor",        type=float, default=1.0,  help="Volatility appetite (scales order size by beta).")
+    parser.add_argument("--max-allocation-pct", type=float, default=0.20, help="Max capital allocation per position (0.10–0.50).")
+    parser.add_argument("--take-profit-pct",    type=float, default=0.30, help="Take-profit target above entry price (0.10–0.50).")
+    parser.add_argument("--sentiment-weight",   type=float, default=0.0,  help="Sentiment fusion weight ω (0.0–1.0).")
     args = parser.parse_args()
 
     run_backtest(
@@ -642,4 +662,7 @@ if __name__ == "__main__":
         confirmation_days=args.confirmation_days,
         alpha_factor=args.alpha_factor,
         beta_factor=args.beta_factor,
+        max_allocation_pct=args.max_allocation_pct,
+        take_profit_pct=args.take_profit_pct,
+        sentiment_weight=args.sentiment_weight,
     )

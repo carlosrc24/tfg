@@ -49,7 +49,7 @@ export default function DashboardTabs({
           }`}
         >
           <span className={`w-2 h-2 rounded-full ${activeTab === "live" ? "bg-emerald-400 animate-pulse" : "bg-gray-600"}`} />
-          📡 Live / Paper Trading
+          Live / Paper Trading
         </button>
         <button
           id="tab-backtest"
@@ -60,7 +60,7 @@ export default function DashboardTabs({
               : "text-gray-500 hover:text-gray-300"
           }`}
         >
-          🧪 Backtest Lab
+          Backtest Lab
           <span className="text-xs bg-purple-900/60 border border-purple-700/50 text-purple-300 px-1.5 py-0.5 rounded-full">
             2023–2026
           </span>

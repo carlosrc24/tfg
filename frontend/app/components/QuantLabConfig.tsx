@@ -12,6 +12,9 @@ export interface QuantLabParams {
   confirmation_days: number;
   alpha_factor: number;
   beta_factor: number;
+  max_allocation_pct: number;
+  take_profit_pct: number;
+  sentiment_weight: number;
 }
 
 interface Props {
@@ -32,6 +35,9 @@ const DEFAULTS: QuantLabParams = {
   confirmation_days: 2,
   alpha_factor: 1.0,
   beta_factor: 1.0,
+  max_allocation_pct: 0.20,
+  take_profit_pct: 0.0,
+  sentiment_weight: 0.0,
 };
 
 // ── Reusable primitives ───────────────────────────────────────────────────────
@@ -125,6 +131,8 @@ export default function QuantLabConfig({ onRunStart, isRunning }: Props) {
     `$${(v / 1000).toFixed(0)}k`;
   const fmtX = (v: number) => `${v.toFixed(2)}×`;
   const fmtDays = (v: number) => `${v}d`;
+  const fmtPct = (v: number) => `${Math.round(v * 100)}%`;
+  const fmtWeight = (v: number) => v.toFixed(2);
 
   return (
     <div className="glass-card p-6 space-y-5">
@@ -204,6 +212,19 @@ export default function QuantLabConfig({ onRunStart, isRunning }: Props) {
         disabled={isRunning}
       />
 
+      {/* ── Sentiment weight ───────────────────────────────────────────────── */}
+      <SliderField
+        label="News Sentiment Weight — ω"
+        hint={`p = ${(1 - params.sentiment_weight).toFixed(2)}·AI + ${params.sentiment_weight.toFixed(2)}·sentiment`}
+        min={0.0}
+        max={1.0}
+        step={0.05}
+        value={params.sentiment_weight}
+        format={fmtWeight}
+        onChange={(v) => set("sentiment_weight", v)}
+        disabled={isRunning}
+      />
+
       {/* ── ATR Multiplier ─────────────────────────────────────────────────── */}
       <SliderField
         label="ATR Multiplier — Trailing Stop"
@@ -214,6 +235,32 @@ export default function QuantLabConfig({ onRunStart, isRunning }: Props) {
         value={params.atr_multiplier}
         format={fmtX}
         onChange={(v) => set("atr_multiplier", v)}
+        disabled={isRunning}
+      />
+
+      {/* ── Max position allocation ────────────────────────────────────────── */}
+      <SliderField
+        label="Max Position Allocation"
+        hint="capital cap per open position"
+        min={0.10}
+        max={0.50}
+        step={0.05}
+        value={params.max_allocation_pct}
+        format={fmtPct}
+        onChange={(v) => set("max_allocation_pct", v)}
+        disabled={isRunning}
+      />
+
+      {/* ── Take profit target ─────────────────────────────────────────────── */}
+      <SliderField
+        label="Take Profit Target"
+        hint={params.take_profit_pct === 0 ? "disabled" : "sell 50% when gain ≥ target"}
+        min={0.0}
+        max={0.50}
+        step={0.05}
+        value={params.take_profit_pct}
+        format={(v) => v === 0 ? "Off" : fmtPct(v)}
+        onChange={(v) => set("take_profit_pct", v)}
         disabled={isRunning}
       />
 
