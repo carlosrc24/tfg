@@ -519,12 +519,14 @@ def run_backtest(
                     ):
                         confirmed_prob = effective_buy_threshold - 0.01
 
-                # Hysteresis: skip if prob change is below the dead-zone threshold.
-                # Applied uniformly — no special case for fully-cash state.
+                # Hysteresis: skip if the confirmed prob has not moved enough.
+                # Comparing confirmed_prob (not raw prediction_prob) means a signal
+                # that just transitioned from unconfirmed (below threshold) to confirmed
+                # (above threshold) is treated as a new event and not blocked.
                 if sym in last_prob:
-                    if abs(prediction_prob - last_prob[sym]) < HYSTERESIS_THRESHOLD:
+                    if abs(confirmed_prob - last_prob[sym]) < HYSTERESIS_THRESHOLD:
                         continue
-                last_prob[sym] = prediction_prob
+                last_prob[sym] = confirmed_prob
 
                 # ── STEP D: Execute trade signal ──────────────────────────────
                 # Dynamic macro-regime filter using the user-selected trend SMA

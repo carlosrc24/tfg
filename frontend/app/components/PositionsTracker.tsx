@@ -320,6 +320,8 @@ export default function PositionsTracker({
                         color: "#f9fafb",
                         fontSize: "12px",
                       }}
+                      itemStyle={{ color: "#f9fafb" }}
+                      labelStyle={{ color: "#f9fafb" }}
                       formatter={(value: number, name: string) => [
                         fmtUSD(value),
                         name,

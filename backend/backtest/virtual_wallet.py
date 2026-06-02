@@ -24,8 +24,8 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # ── Order-sizing constants ─────────────────────────────────────────────────────
-MIN_ORDER_USD:      float = 500.0
-MAX_ORDER_USD:      float = 3_000.0
+# MIN/MAX order USD are now dynamic instance attributes (10%/50% of max_long_usd)
+# so they scale with initial_capital × max_allocation_pct.
 BUY_THRESHOLD:      float = 0.60
 SELL_THRESHOLD:     float = 0.40
 PARTIAL_EXIT_LOWER: float = 0.35
@@ -84,6 +84,11 @@ class VirtualWallet:
 
         # Dynamic long cap — max_allocation_pct of initial capital
         self.max_long_usd: float = round(initial_balance * max_allocation_pct, 2)
+
+        # Order sizing: 10% / 50% of the position cap so orders scale with capital.
+        # Example: $100k capital, 20% cap → max_long_usd=$20k → min=$2k, max=$10k.
+        self.min_order_usd: float = round(self.max_long_usd * 0.10, 2)
+        self.max_order_usd: float = round(self.max_long_usd * 0.50, 2)
 
         self.positions: dict[str, Position] = {}
 
@@ -301,10 +306,10 @@ class VirtualWallet:
 
         def _order_usd(prob: float) -> float:
             t = (prob - self.buy_threshold) / (1.0 - self.buy_threshold)
-            base = round(max(MIN_ORDER_USD, min(MAX_ORDER_USD,
-                             MIN_ORDER_USD + t * (MAX_ORDER_USD - MIN_ORDER_USD))), 2)
+            base = round(max(self.min_order_usd, min(self.max_order_usd,
+                             self.min_order_usd + t * (self.max_order_usd - self.min_order_usd))), 2)
             beta_scale = abs(beta) * self.beta_factor if self.beta_factor > 0 else 1.0
-            return round(min(base * beta_scale, MAX_ORDER_USD), 2)
+            return round(min(base * beta_scale, self.max_order_usd), 2)
 
         # ── LONG conviction ────────────────────────────────────────────────────
         if prediction_prob >= self.buy_threshold:
