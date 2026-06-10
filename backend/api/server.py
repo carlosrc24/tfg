@@ -150,7 +150,7 @@ def _run_backtest_task(run_id: str, params: BacktestPayload) -> None:
         # Import lazily so module-level Rich logging setup doesn't run at server boot
         from backtest.backtest_engine import run_backtest
 
-        run_backtest(
+        result = run_backtest(
             start=date.fromisoformat(params.start_date),
             end=date.fromisoformat(params.end_date) if params.end_date else None,
             initial_capital=params.initial_capital,
@@ -167,8 +167,15 @@ def _run_backtest_task(run_id: str, params: BacktestPayload) -> None:
             show_progress=False,
             log_flush_fn=handler._flush_to_db,
         )
+        interest_earned = (
+            result.get("total_interest_accrued", 0.0)
+            if isinstance(result, dict) else 0.0
+        )
+        # Merge input parameters with computed result fields so the frontend
+        # can read _cash_interest_earned without a separate DB column.
+        merged_params = {**params.model_dump(), "_cash_interest_earned": round(interest_earned, 2)}
         client.table("backtest_runs").update(
-            {"status": "completed", "progress_pct": 100}
+            {"status": "completed", "progress_pct": 100, "parameters": merged_params}
         ).eq("id", run_id).execute()
 
     except Exception as exc:

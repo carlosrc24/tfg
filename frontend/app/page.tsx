@@ -47,21 +47,11 @@ export default async function DashboardPage() {
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <header className="mb-10 fade-in">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-            Σ
-          </div>
-          <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold">
-            TFG · Sistema de Trading Algorítmico
-          </span>
+          
         </div>
         <h1 className="text-4xl font-extrabold gradient-text leading-tight">
           ETF Trading Dashboard
         </h1>
-        <p className="text-gray-400 mt-2 text-sm">
-          Powered by <span className="text-indigo-400 font-medium">FinBERT</span> ·{" "}
-          <span className="text-purple-400 font-medium">LightGBM</span> ·{" "}
-          <span className="text-pink-400 font-medium">Alpaca Paper Trading</span>
-        </p>
       </header>
 
       {/* ── Tab-based dashboard (client component) ────────────────────────── */}
@@ -74,10 +64,6 @@ export default async function DashboardPage() {
         activeTrades={activeTrades}
       />
 
-      {/* ── Footer ──────────────────────────────────────────────────────────── */}
-      <footer className="mt-12 pb-6 text-center text-xs text-gray-700">
-        TFG · Ingeniería Informática · Sistema de Trading Algorítmico para ETFs
-      </footer>
     </main>
   );
 }

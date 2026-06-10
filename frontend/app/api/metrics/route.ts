@@ -55,6 +55,41 @@ function calcCAGR(values: number[], initialCapital: number): number | null {
   return Math.round(cagr * 10000) / 100;
 }
 
+function calcAnnualizedVol(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    if (values[i - 1] > 0) returns.push((values[i] - values[i - 1]) / values[i - 1]);
+  }
+  if (returns.length === 0) return null;
+  const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length;
+  return Math.round(Math.sqrt(variance) * Math.sqrt(252) * 10000) / 100; // → %
+}
+
+function calcSortino(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    if (values[i - 1] > 0) returns.push((values[i] - values[i - 1]) / values[i - 1]);
+  }
+  if (returns.length === 0) return null;
+  const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const rfDaily = RISK_FREE_RATE_ANNUAL / 252;
+  const downsideVariance =
+    returns.reduce((s, r) => s + Math.min(r - rfDaily, 0) ** 2, 0) / returns.length;
+  const downsideStd = Math.sqrt(downsideVariance);
+  if (downsideStd === 0) return null;
+  return Math.round(((mean - rfDaily) / downsideStd) * Math.sqrt(252) * 100) / 100;
+}
+
+function calcCalmar(values: number[], initialCapital: number): number | null {
+  const cagr = calcCAGR(values, initialCapital); // already in %
+  const dd = calcMaxDrawdown(values); // already in %
+  if (cagr === null || dd == null || dd === 0) return null;
+  return Math.round((cagr / dd) * 100) / 100;
+}
+
 // Returns absolute USD chart data + SPY portfolio values for metric calculations.
 // SPY buy-and-hold: spy_shares = initialCapital / first_spy_price, so both
 // lines start at exactly $initialCapital on Day 1.
@@ -165,6 +200,8 @@ export async function GET(request: Request) {
     const sharpe = calcSharpe(botValues);
     const spySharpe = spyPortfolioValues.length > 1 ? calcSharpe(spyPortfolioValues) : null;
     const maxDrawdown = botValues.length > 0 ? calcMaxDrawdown(botValues) : null;
+    const spyMaxDrawdown =
+      spyPortfolioValues.length > 1 ? calcMaxDrawdown(spyPortfolioValues) : null;
     const botReturn = botValues.length > 0 ? totalReturn(botValues, initialCapital) : null;
     const spyReturn =
       spyPortfolioValues.length > 1 ? totalReturn(spyPortfolioValues, initialCapital) : null;
@@ -173,6 +210,17 @@ export async function GET(request: Request) {
       spyPortfolioValues.length > 1 ? calcCAGR(spyPortfolioValues, initialCapital) : null;
     const latestValue = botValues.length > 0 ? botValues[botValues.length - 1] : null;
 
+    const annualizedVol = calcAnnualizedVol(botValues);
+    const spyAnnualizedVol =
+      spyPortfolioValues.length > 1 ? calcAnnualizedVol(spyPortfolioValues) : null;
+    const sortinoRatio = calcSortino(botValues);
+    const spySortinoRatio =
+      spyPortfolioValues.length > 1 ? calcSortino(spyPortfolioValues) : null;
+    const calmarRatio =
+      botValues.length > 0 ? calcCalmar(botValues, initialCapital) : null;
+    const spyCalmarRatio =
+      spyPortfolioValues.length > 1 ? calcCalmar(spyPortfolioValues, initialCapital) : null;
+
     return NextResponse.json({
       mode,
       runId: runId ?? null,
@@ -180,10 +228,17 @@ export async function GET(request: Request) {
       sharpe,
       spySharpe,
       maxDrawdown,
+      spyMaxDrawdown,
       botReturn,
       spyReturn,
       botCagr,
       spyCagr,
+      annualizedVol,
+      spyAnnualizedVol,
+      sortinoRatio,
+      spySortinoRatio,
+      calmarRatio,
+      spyCalmarRatio,
       totalEquity: latestValue,
       equityHistory,
       dataPoints: rows.length,

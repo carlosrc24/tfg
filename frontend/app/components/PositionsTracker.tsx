@@ -47,6 +47,10 @@ interface ApiResponse {
   totalOpenMarketValue: number | null;
   totalPnL: number;
   symbolMap: Record<string, string>;
+  cashInterestEarned: number;
+  initialCapital: number;
+  simulationStartDate: string;
+  simulationEndDate: string | null;
   error?: string;
 }
 
@@ -116,6 +120,8 @@ const TD = "!py-3 !text-gray-300";
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
+const TRADES_PER_PAGE = 25;
+
 export default function PositionsTracker({
   runId,
   refreshKey = 0,
@@ -124,6 +130,7 @@ export default function PositionsTracker({
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [tradePage, setTradePage] = useState(1);
 
   useEffect(() => {
     if (!runId) {
@@ -132,6 +139,7 @@ export default function PositionsTracker({
       return;
     }
 
+    setTradePage(1);
     let cancelled = false;
     setLoading(true);
     setFetchError(null);
@@ -209,7 +217,41 @@ export default function PositionsTracker({
 
   const totalPortfolioValue = donutData.reduce((s, d) => s + d.value, 0);
 
+  const cashInterestEarned  = data?.cashInterestEarned  ?? 0;
+  const simInitialCapital   = data?.initialCapital       ?? 0;
+  const simStartDate        = data?.simulationStartDate  ?? null;
+  const simEndDate          = data?.simulationEndDate    ?? null;
+
+  // Years between simulation start and end (or today) — used for CAGR contribution
+  const simYears = (() => {
+    if (!simStartDate) return null;
+    const start = new Date(simStartDate).getTime();
+    const end   = simEndDate ? new Date(simEndDate).getTime() : Date.now();
+    return (end - start) / (365.25 * 24 * 60 * 60 * 1000);
+  })();
+
+  // Interest contribution to Total Return (percentage points)
+  const interestReturnDelta =
+    simInitialCapital > 0 && cashInterestEarned > 0
+      ? (cashInterestEarned / simInitialCapital) * 100
+      : null;
+
+  // Interest contribution to CAGR (percentage points p.a.)
+  const interestCagrDelta =
+    interestReturnDelta !== null && simYears !== null && simYears > 0
+      ? (Math.pow(1 + cashInterestEarned / simInitialCapital, 1 / simYears) - 1) * 100
+      : null;
+
   const showSkeleton = loading || (isRunning && !data);
+
+  const totalPages = Math.max(1, Math.ceil(trades.length / TRADES_PER_PAGE));
+  const safeTradePageClamped = Math.min(tradePage, totalPages);
+  const paginatedTrades = trades.slice(
+    (safeTradePageClamped - 1) * TRADES_PER_PAGE,
+    safeTradePageClamped * TRADES_PER_PAGE,
+  );
+  const firstTradeIndex = (safeTradePageClamped - 1) * TRADES_PER_PAGE + 1;
+  const lastTradeIndex = Math.min(safeTradePageClamped * TRADES_PER_PAGE, trades.length);
 
   return (
     <div className="space-y-4 mt-4">
@@ -247,7 +289,6 @@ export default function PositionsTracker({
                   }`}
                 >
                   {unrealizedPLPct >= 0 ? "+" : ""}
-                  {unrealizedPLPct.toFixed(2)}%
                 </p>
               )}
             </div>
@@ -377,9 +418,19 @@ export default function PositionsTracker({
                       />
                       <span className="text-sm text-gray-300 font-mono">Cash</span>
                     </div>
-                    <span className="text-sm font-bold font-mono text-white">
-                      {fmtUSD(finalCash)}
-                    </span>
+                    <div className="flex items-center gap-5">
+                      <span className="text-sm font-bold font-mono text-white">
+                        {fmtUSD(finalCash)}
+                      </span>
+                      {cashInterestEarned > 0 && (
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500 mb-0.5">Interest yield</p>
+                          <p className="text-sm font-bold font-mono text-emerald-400">
+                            +{fmtUSD(cashInterestEarned)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -460,7 +511,6 @@ export default function PositionsTracker({
                                   </span>
                                   <span className="text-xs opacity-70">
                                     {unrPct >= 0 ? "+" : ""}
-                                    {unrPct.toFixed(2)}%
                                   </span>
                                 </div>
                               ) : (
@@ -493,8 +543,14 @@ export default function PositionsTracker({
                           <td className="py-2.5 px-2 text-right font-mono text-gray-300 font-semibold text-sm">
                             {fmtUSD(finalCash)}
                           </td>
-                          <td className="py-2.5 px-2 text-right text-gray-600 text-sm">
-                            —
+                          <td className="py-2.5 px-2 text-right font-mono text-sm">
+                            {cashInterestEarned > 0 ? (
+                              <span className="text-emerald-400 font-semibold">
+                                +{fmtUSD(cashInterestEarned)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-600">—</span>
+                            )}
                           </td>
                         </tr>
                       )}
@@ -510,6 +566,40 @@ export default function PositionsTracker({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── Cash Yield Summary ribbon ──────────────────────────────────────── */}
+        {!showSkeleton && cashInterestEarned > 0 && (
+          <div className="mt-5 p-4 bg-emerald-950/20 border border-emerald-800/25 rounded-xl">
+            <p className="text-xs font-semibold text-emerald-400 uppercase tracking-widest mb-3">
+              Cash Yield Impact · 4% p.a. Federal Reserve Risk-Free Rate
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-gray-500 mb-0.5">Interest Earned</p>
+                <p className="text-lg font-bold font-mono text-emerald-400">
+                  +{fmtUSD(cashInterestEarned)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-0.5">Total Return +Δ</p>
+                <p className="text-lg font-bold font-mono text-emerald-400">
+                  {interestReturnDelta !== null
+                    ? `+${interestReturnDelta.toFixed(2)}%`
+                    : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-0.5">Volatility Impact</p>
+                <p className="text-lg font-bold font-mono text-emerald-400">
+                  +0.00%
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 mt-3 leading-relaxed">
+              Retorno diario de 4% anual (pagando 0.04 / 252 por dia), haciendo interes durante la simulación
+            </p>
           </div>
         )}
       </div>
@@ -596,7 +686,7 @@ export default function PositionsTracker({
               </TableHead>
 
               <TableBody>
-                {trades.map((trade) => {
+                {paginatedTrades.map((trade) => {
                   const symbol = symbolMap[trade.etf_id] ?? "?";
                   const { color, label } = resolveAction(
                     trade.action,
@@ -657,11 +747,101 @@ export default function PositionsTracker({
               </TableBody>
             </Table>
 
-            {tradeCount > 500 && (
-              <p className="text-xs text-gray-600 text-center mt-3">
-                Showing the latest 500 of {tradeCount} trades for this run.
+            {/* ── Pagination controls ──────────────────────────────────────── */}
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800/60">
+              {/* Left: record range */}
+              <p className="text-xs text-gray-500 font-mono">
+                {trades.length > 0
+                  ? `Showing ${firstTradeIndex}–${lastTradeIndex} of ${trades.length} trades${tradeCount > trades.length ? ` (${tradeCount} total)` : ""}`
+                  : ""}
               </p>
-            )}
+
+              {/* Centre: page buttons */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  {/* First */}
+                  <button
+                    onClick={() => setTradePage(1)}
+                    disabled={safeTradePageClamped === 1}
+                    className="px-2 py-1 text-xs rounded border border-gray-700 text-gray-400 hover:border-indigo-600 hover:text-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="First page"
+                  >
+                    «
+                  </button>
+
+                  {/* Prev */}
+                  <button
+                    onClick={() => setTradePage((p) => Math.max(1, p - 1))}
+                    disabled={safeTradePageClamped === 1}
+                    className="px-2 py-1 text-xs rounded border border-gray-700 text-gray-400 hover:border-indigo-600 hover:text-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="Previous page"
+                  >
+                    ‹
+                  </button>
+
+                  {/* Page pills — show up to 7, ellipsis on overflow */}
+                  {(() => {
+                    const pages: (number | "…")[] = [];
+                    if (totalPages <= 7) {
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                      const cur = safeTradePageClamped;
+                      pages.push(1);
+                      if (cur > 3) pages.push("…");
+                      for (let i = Math.max(2, cur - 1); i <= Math.min(totalPages - 1, cur + 1); i++) {
+                        pages.push(i);
+                      }
+                      if (cur < totalPages - 2) pages.push("…");
+                      pages.push(totalPages);
+                    }
+                    return pages.map((p, i) =>
+                      p === "…" ? (
+                        <span key={`ellipsis-${i}`} className="px-1 text-xs text-gray-600">…</span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => setTradePage(p as number)}
+                          className={`min-w-[28px] px-2 py-1 text-xs rounded border transition-colors ${
+                            p === safeTradePageClamped
+                              ? "border-indigo-500 bg-indigo-900/40 text-indigo-300 font-semibold"
+                              : "border-gray-700 text-gray-400 hover:border-indigo-600 hover:text-indigo-300"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ),
+                    );
+                  })()}
+
+                  {/* Next */}
+                  <button
+                    onClick={() => setTradePage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safeTradePageClamped === totalPages}
+                    className="px-2 py-1 text-xs rounded border border-gray-700 text-gray-400 hover:border-indigo-600 hover:text-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="Next page"
+                  >
+                    ›
+                  </button>
+
+                  {/* Last */}
+                  <button
+                    onClick={() => setTradePage(totalPages)}
+                    disabled={safeTradePageClamped === totalPages}
+                    className="px-2 py-1 text-xs rounded border border-gray-700 text-gray-400 hover:border-indigo-600 hover:text-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="Last page"
+                  >
+                    »
+                  </button>
+                </div>
+              )}
+
+              {/* Right: page X of Y */}
+              {totalPages > 1 && (
+                <p className="text-xs text-gray-500 font-mono">
+                  Page {safeTradePageClamped} of {totalPages}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>

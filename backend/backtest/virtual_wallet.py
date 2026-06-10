@@ -34,6 +34,12 @@ PARTIAL_EXIT_LOWER: float = 0.35
 LONG_TIER1_FACTOR: float = 0.85   # sell 70%  when price ≤ highest × 0.85
 LONG_TIER2_FACTOR: float = 0.80   # sell 30%  when price ≤ highest × 0.80
 
+# ── Cash yield ─────────────────────────────────────────────────────────────────
+# Matches the risk-free rate already used in Sharpe/Sortino calculations.
+ANNUAL_CASH_RATE:      float = 0.04
+TRADING_DAYS_PER_YEAR: int   = 252
+DAILY_CASH_RATE:       float = ANNUAL_CASH_RATE / TRADING_DAYS_PER_YEAR
+
 
 @dataclass
 class Position:
@@ -99,6 +105,22 @@ class VirtualWallet:
 
         # Time-lock state
         self.last_order_date: dict[str, datetime.date] = {}
+
+        # Cumulative interest earned (visible to the engine for summary logging)
+        self.total_interest_accrued: float = 0.0
+
+    # ── Cash interest accrual ──────────────────────────────────────────────────
+
+    def accrue_daily_cash_interest(self) -> float:
+        """
+        Apply one trading-day's worth of 4% p.a. interest to idle cash.
+        Called once per simulated day in the engine loop, before the equity snapshot.
+        Returns the interest amount added (also accumulated in total_interest_accrued).
+        """
+        interest = self.balance * DAILY_CASH_RATE
+        self.balance += interest
+        self.total_interest_accrued += interest
+        return interest
 
     # ── Portfolio valuation ────────────────────────────────────────────────────
 

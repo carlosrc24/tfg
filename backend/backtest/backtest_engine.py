@@ -224,7 +224,7 @@ def run_backtest(
     run_id: str | None = None,
     show_progress: bool = True,
     log_flush_fn=None,
-) -> None:
+) -> dict:
     end = end or date.today()
 
     # Alpaca's free tier returns 403 when StockBarsRequest.end touches today
@@ -577,6 +577,9 @@ def run_backtest(
                     flush=True,
                 )
 
+            # Daily cash interest (4% p.a. on idle balance, applied before snapshot)
+            wallet.accrue_daily_cash_interest()
+
             # Daily equity snapshot
             port_value = wallet.portfolio_value(current_prices)
             save_bt_equity(ts_day.isoformat(), port_value, spy_close, run_id)
@@ -584,10 +587,11 @@ def run_backtest(
             # Progress heartbeat every 30 simulated days
             if idx % 30 == 0 or idx == total_days - 1:
                 logger.info(
-                    "[INFO] Simulating Day %d/%d (%s) | Portfolio: $%s | Cash: $%s",
+                    "[INFO] Simulating Day %d/%d (%s) | Portfolio: $%s | Cash: $%s | Interest total: $%s",
                     idx + 1, total_days, day,
                     format(port_value, ",.2f"),
                     format(wallet.balance, ",.2f"),
+                    format(wallet.total_interest_accrued, ",.2f"),
                 )
 
             if idx % 5 == 0 or idx == total_days - 1:
@@ -633,7 +637,11 @@ def run_backtest(
     logger.info("  Final portfolio value : $%s", format(final_value, ",.2f"))
     logger.info("  Total return          : %+.2f%%", total_return)
     logger.info("  Open positions        : %d", len(wallet.positions))
+    logger.info("  Cash interest earned  : $%s  (4%% p.a. on idle cash)",
+                format(wallet.total_interest_accrued, ",.2f"))
     logger.info("═══════════════════════════════════════════")
+
+    return {"total_interest_accrued": round(wallet.total_interest_accrued, 2)}
 
 
 # ── CLI entry point ────────────────────────────────────────────────────────────

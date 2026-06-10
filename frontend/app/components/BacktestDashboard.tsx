@@ -16,6 +16,7 @@ import { format, parseISO } from "date-fns";
 import QuantLabConfig from "./QuantLabConfig";
 import TerminalConsole from "./TerminalConsole";
 import PositionsTracker from "./PositionsTracker";
+import ETFBreakdownTable from "./ETFBreakdownTable";
 
 interface MetricsData {
   mode: string;
@@ -24,10 +25,17 @@ interface MetricsData {
   sharpe: number | null;
   spySharpe: number | null;
   maxDrawdown: number | null;
+  spyMaxDrawdown: number | null;
   botReturn: number | null;
   spyReturn: number | null;
   botCagr: number | null;
   spyCagr: number | null;
+  annualizedVol: number | null;
+  spyAnnualizedVol: number | null;
+  sortinoRatio: number | null;
+  spySortinoRatio: number | null;
+  calmarRatio: number | null;
+  spyCalmarRatio: number | null;
   totalEquity: number | null;
   equityHistory: { date: string; bot: number; spy: number | null }[];
   dataPoints: number;
@@ -214,52 +222,63 @@ export default function BacktestDashboard() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <CompareCard
-                label="Retorno Total"
-                botValue={data?.botReturn ?? null}
-                spyValue={data?.spyReturn ?? null}
-                format={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`}
-                higherIsBetter
-              />
-              <CompareCard
-                label="Rentabilidad Anual (CAGR)"
-                botValue={data?.botCagr ?? null}
-                spyValue={data?.spyCagr ?? null}
-                format={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`}
-                higherIsBetter
-              />
-              <CompareCard
-                label="Sharpe Ratio (Rf = 4%)"
-                botValue={data?.sharpe ?? null}
-                spyValue={data?.spySharpe ?? null}
-                format={(v) => v.toFixed(2)}
-                higherIsBetter
-              />
-              <div className="glass-card p-5 fade-in">
-                <p className="text-xs text-gray-500 uppercase tracking-widest font-medium mb-3">
-                  Max Drawdown
-                </p>
-                <p
-                  className={`text-3xl font-bold font-mono ${
-                    data?.maxDrawdown == null
-                      ? "text-gray-500"
-                      : data.maxDrawdown > 15
-                      ? "text-rose-400"
-                      : data.maxDrawdown > 5
-                      ? "text-yellow-400"
-                      : "text-emerald-400"
-                  }`}
-                >
-                  {data?.maxDrawdown != null
-                    ? `-${data.maxDrawdown.toFixed(2)}%`
-                    : "—"}
-                </p>
-                <p className="text-xs text-gray-600 mt-1">
-                  Caída máxima desde el pico histórico del bot
-                </p>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <CompareCard
+                  label="Retorno Total"
+                  botValue={data?.botReturn ?? null}
+                  spyValue={data?.spyReturn ?? null}
+                  format={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`}
+                  higherIsBetter
+                />
+                <CompareCard
+                  label="Rentabilidad Anual (CAGR)"
+                  botValue={data?.botCagr ?? null}
+                  spyValue={data?.spyCagr ?? null}
+                  format={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`}
+                  higherIsBetter
+                />
+                <CompareCard
+                  label="Sharpe Ratio (Rf = 4%)"
+                  botValue={data?.sharpe ?? null}
+                  spyValue={data?.spySharpe ?? null}
+                  format={(v) => v.toFixed(2)}
+                  higherIsBetter
+                />
+                <CompareCard
+                  label="Max Drawdown"
+                  botValue={data?.maxDrawdown ?? null}
+                  spyValue={data?.spyMaxDrawdown ?? null}
+                  format={(v) => `-${v.toFixed(2)}%`}
+                  higherIsBetter={false}
+                />
               </div>
-            </div>
+
+              {/* ── Second KPI row: volatility metrics ─────────────────────── */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <CompareCard
+                  label="Volatilidad Anualizada"
+                  botValue={data?.annualizedVol ?? null}
+                  spyValue={data?.spyAnnualizedVol ?? null}
+                  format={(v) => `${v.toFixed(2)}%`}
+                  higherIsBetter={false}
+                />
+                <CompareCard
+                  label="Sortino Ratio (Rf = 4%)"
+                  botValue={data?.sortinoRatio ?? null}
+                  spyValue={data?.spySortinoRatio ?? null}
+                  format={(v) => v.toFixed(2)}
+                  higherIsBetter
+                />
+                <CompareCard
+                  label="Calmar Ratio"
+                  botValue={data?.calmarRatio ?? null}
+                  spyValue={data?.spyCalmarRatio ?? null}
+                  format={(v) => v.toFixed(2)}
+                  higherIsBetter
+                />
+              </div>
+            </>
           )}
 
           {/* ── Equity curve ───────────────────────────────────────────────── */}
@@ -376,6 +395,13 @@ export default function BacktestDashboard() {
               </ResponsiveContainer>
             )}
           </div>
+
+          {/* ── Per-ETF breakdown ──────────────────────────────────────────── */}
+          <ETFBreakdownTable
+            runId={activeRunId}
+            refreshKey={tradesRefreshKey}
+            isRunning={isRunning}
+          />
 
           {/* ── Historical trade log ────────────────────────────────────────── */}
           <PositionsTracker

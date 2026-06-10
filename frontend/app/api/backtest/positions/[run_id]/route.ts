@@ -94,13 +94,22 @@ export async function GET(
 
     const initialCapital: number =
       runData?.parameters?.initial_capital ?? 100_000;
-    const finalCash = Math.max(
-      0,
-      initialCapital + totalSellProceeds - totalBuyCost
-    );
+    // Cash from trading activity only (no interest)
+    const tradeCash = Math.max(0, initialCapital + totalSellProceeds - totalBuyCost);
+    // Interest accrued over the simulation (stored at run completion)
+    const cashInterestEarned: number =
+      runData?.parameters?._cash_interest_earned ?? 0;
+    // Actual final cash = trade cash + all compounded interest
+    const finalCash = tradeCash + cashInterestEarned;
     const lastTotalValue = lastEquity?.total_value ?? null;
+    // Open positions market value correctly excludes interest from the cash side
     const totalOpenMarketValue =
       lastTotalValue !== null ? Math.max(0, lastTotalValue - finalCash) : null;
+
+    const simulationStartDate: string =
+      runData?.parameters?.start_date ?? "2023-01-01";
+    const simulationEndDate: string | null =
+      runData?.parameters?.end_date ?? null;
 
     const openPositions = Object.entries(posQty)
       .filter(([, qty]) => qty > 0.001)
@@ -131,6 +140,10 @@ export async function GET(
       totalOpenMarketValue,
       totalPnL,
       symbolMap,
+      cashInterestEarned,
+      initialCapital,
+      simulationStartDate,
+      simulationEndDate,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
