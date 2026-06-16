@@ -93,7 +93,8 @@ class _DBLogHandler(logging.Handler):
 class BacktestPayload(BaseModel):
     start_date: str = "2023-01-01"
     end_date: Optional[str] = None
-    initial_capital: float = Field(100_000.0, ge=5_000, le=150_000)
+    # ge=0 allows PERIODIC mode with a $0 starting pool (monthly contributions fund the bot)
+    initial_capital: float = Field(100_000.0, ge=0, le=150_000)
     atr_multiplier: float = Field(2.5, ge=1.5, le=5.0)
     trend_sma: int = Field(50)
     min_holding_days: int = Field(3, ge=1, le=10)
@@ -103,6 +104,15 @@ class BacktestPayload(BaseModel):
     max_allocation_pct: float = Field(0.20, ge=0.10, le=0.50)
     take_profit_pct: float = Field(0.0, ge=0.0, le=0.50)
     sentiment_weight: float = Field(0.0, ge=0.0, le=1.0)
+    investment_mode: str = Field("LUMP_SUM")
+    monthly_contribution: float = Field(0.0, ge=0.0, le=2_000.0)
+
+    @field_validator("investment_mode")
+    @classmethod
+    def validate_investment_mode(cls, v: str) -> str:
+        if v not in ("LUMP_SUM", "PERIODIC"):
+            raise ValueError("investment_mode must be 'LUMP_SUM' or 'PERIODIC'")
+        return v
 
     @field_validator("trend_sma")
     @classmethod
@@ -163,6 +173,8 @@ def _run_backtest_task(run_id: str, params: BacktestPayload) -> None:
             max_allocation_pct=params.max_allocation_pct,
             take_profit_pct=params.take_profit_pct,
             sentiment_weight=params.sentiment_weight,
+            investment_mode=params.investment_mode,
+            monthly_contribution=params.monthly_contribution,
             run_id=run_id,
             show_progress=False,
             log_flush_fn=handler._flush_to_db,

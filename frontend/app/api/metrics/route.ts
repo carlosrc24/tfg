@@ -90,35 +90,88 @@ function calcCalmar(values: number[], initialCapital: number): number | null {
   return Math.round((cagr / dd) * 100) / 100;
 }
 
+// On DCA injection days (every 21 trading days), strip the cash deposit from the
+// numerator so the deposit jump doesn't masquerade as a market gain in
+// Sharpe / Sortino / Vol calculations.
+function calcAdjustedReturns(
+  values: number[],
+  investmentMode: string,
+  monthlyContribution: number
+): number[] {
+  if (values.length < 2) return [];
+  const returns: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    if (values[i - 1] <= 0) continue;
+    const deposit =
+      investmentMode === "PERIODIC" && i % 21 === 0 ? monthlyContribution : 0;
+    returns.push((values[i] - deposit - values[i - 1]) / values[i - 1]);
+  }
+  return returns;
+}
+
+function calcSharpeFromReturns(returns: number[]): number | null {
+  if (returns.length === 0) return null;
+  const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length;
+  const std = Math.sqrt(variance);
+  if (std === 0) return null;
+  const rfDaily = RISK_FREE_RATE_ANNUAL / 252;
+  return Math.round(((mean - rfDaily) / std) * Math.sqrt(252) * 100) / 100;
+}
+
+function calcSortinoFromReturns(returns: number[]): number | null {
+  if (returns.length === 0) return null;
+  const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const rfDaily = RISK_FREE_RATE_ANNUAL / 252;
+  const downsideVariance =
+    returns.reduce((s, r) => s + Math.min(r - rfDaily, 0) ** 2, 0) / returns.length;
+  const downsideStd = Math.sqrt(downsideVariance);
+  if (downsideStd === 0) return null;
+  return Math.round(((mean - rfDaily) / downsideStd) * Math.sqrt(252) * 100) / 100;
+}
+
+function calcVolFromReturns(returns: number[]): number | null {
+  if (returns.length === 0) return null;
+  const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length;
+  return Math.round(Math.sqrt(variance) * Math.sqrt(252) * 10000) / 100; // → %
+}
+
 // Returns absolute USD chart data + SPY portfolio values for metric calculations.
-// SPY buy-and-hold: spy_shares = initialCapital / first_spy_price, so both
-// lines start at exactly $initialCapital on Day 1.
-// Day-0 entries are pinned to initialCapital to guarantee identical origins
-// regardless of floating-point precision.
+// benchmark_value is stored by the engine as an absolute USD portfolio value
+// (spy_accumulated_shares × spy_close) for both LUMP_SUM and PERIODIC modes,
+// so no spy_shares reconstruction is needed here.
+// Day-0 entries are pinned to initialCapital so both lines share one origin.
+// In PERIODIC mode each point also carries `injected` = cumulative capital paid in.
 function toAbsoluteDollars(
   rows: EquityRow[],
-  initialCapital: number
+  initialCapital: number,
+  investmentMode: string = "LUMP_SUM",
+  monthlyContribution: number = 0
 ): {
-  chartData: { date: string; bot: number; spy: number | null }[];
+  chartData: { date: string; bot: number; spy: number | null; injected: number | null }[];
   spyPortfolioValues: number[];
 } {
   if (rows.length === 0) return { chartData: [], spyPortfolioValues: [] };
 
-  const firstBenchRow = rows.find((r) => r.benchmark_value !== null && r.benchmark_value > 0);
-  const firstSpyPrice = firstBenchRow?.benchmark_value ?? null;
-  const spyShares = firstSpyPrice ? initialCapital / firstSpyPrice : null;
-
-  const chartData = rows.map((r, i) => ({
-    date: r.timestamp.slice(0, 10),
-    // Pin the very first point to initialCapital so both lines share one origin
-    bot: i === 0 ? initialCapital : r.total_value,
-    spy:
-      spyShares && r.benchmark_value
-        ? i === 0
-          ? initialCapital
-          : Math.round(spyShares * r.benchmark_value * 100) / 100
-        : null,
-  }));
+  const chartData = rows.map((r, i) => {
+    const injected =
+      investmentMode === "PERIODIC" && monthlyContribution > 0
+        ? Math.round((initialCapital + Math.floor(i / 21) * monthlyContribution) * 100) / 100
+        : null;
+    return {
+      date: r.timestamp.slice(0, 10),
+      // Pin the very first point to initialCapital so both lines share one origin
+      bot: i === 0 ? initialCapital : r.total_value,
+      spy:
+        r.benchmark_value !== null && r.benchmark_value > 0
+          ? i === 0
+            ? initialCapital
+            : Math.round(r.benchmark_value * 100) / 100
+          : null,
+      injected,
+    };
+  });
 
   // Second-pass dedup by date — eliminates any residual duplicates that could
   // cause the chart to render a thick ribbon/band artifact.
@@ -129,9 +182,9 @@ function toAbsoluteDollars(
     return true;
   });
 
-  const spyPortfolioValues = spyShares
-    ? rows.filter((r) => r.benchmark_value !== null).map((r) => spyShares * r.benchmark_value!)
-    : [];
+  const spyPortfolioValues = rows
+    .filter((r) => r.benchmark_value !== null && r.benchmark_value > 0)
+    .map((r) => r.benchmark_value!);
 
   return { chartData: uniqueChartData, spyPortfolioValues };
 }
@@ -171,11 +224,13 @@ export async function GET(request: Request) {
 
     const botValues = rows.map((r) => r.total_value);
 
-    // Resolve initial capital — three-tier priority:
+    // Resolve initial capital and DCA parameters — three-tier priority:
     //  1. backtest_runs table (accurate, when run_id is known)
     //  2. First row's total_value (Day 1 = no trades yet → equals initial_balance)
     //  3. Hard fallback $100k for truly empty datasets
     let initialCapital = 100_000;
+    let investmentMode = "LUMP_SUM";
+    let monthlyContribution = 0;
     if (isBacktest) {
       if (runId) {
         const runResp = await supabase
@@ -183,8 +238,16 @@ export async function GET(request: Request) {
           .select("parameters")
           .eq("id", runId)
           .maybeSingle();
-        const cap = runResp.data?.parameters?.initial_capital;
+        const runParams = runResp.data?.parameters;
+        const cap = runParams?.initial_capital;
         initialCapital = typeof cap === "number" && cap > 0 ? cap : 100_000;
+        if (runParams?.investment_mode === "PERIODIC") {
+          investmentMode = "PERIODIC";
+          monthlyContribution =
+            typeof runParams.monthly_contribution === "number"
+              ? runParams.monthly_contribution
+              : 0;
+        }
       } else if (rows.length > 0 && rows[0].total_value > 0) {
         // No run_id: infer from first equity snapshot. Day 1 portfolio value
         // always equals initial_balance because trades only execute at D+1 open.
@@ -192,39 +255,58 @@ export async function GET(request: Request) {
       }
     }
 
+    // Total capital actually paid in by the final simulation day.
+    // Used as the cost-basis denominator for Total Return, CAGR, and Calmar.
+    const totalInjectedFinal =
+      investmentMode === "PERIODIC" && monthlyContribution > 0
+        ? initialCapital +
+          Math.floor((rows.length > 0 ? rows.length - 1 : 0) / 21) * monthlyContribution
+        : initialCapital;
+
     const { chartData: equityHistory, spyPortfolioValues } = toAbsoluteDollars(
       rows,
-      initialCapital
+      initialCapital,
+      investmentMode,
+      monthlyContribution
     );
 
-    const sharpe = calcSharpe(botValues);
-    const spySharpe = spyPortfolioValues.length > 1 ? calcSharpe(spyPortfolioValues) : null;
+    // Deposit-adjusted daily returns strip DCA injection days so cash deposits
+    // don't masquerade as market gains in Sharpe / Sortino / Vol calculations.
+    const botAdjReturns = calcAdjustedReturns(botValues, investmentMode, monthlyContribution);
+    const spyAdjReturns = calcAdjustedReturns(
+      spyPortfolioValues, investmentMode, monthlyContribution
+    );
+
+    const sharpe = calcSharpeFromReturns(botAdjReturns);
+    const spySharpe = spyAdjReturns.length > 0 ? calcSharpeFromReturns(spyAdjReturns) : null;
     const maxDrawdown = botValues.length > 0 ? calcMaxDrawdown(botValues) : null;
     const spyMaxDrawdown =
       spyPortfolioValues.length > 1 ? calcMaxDrawdown(spyPortfolioValues) : null;
-    const botReturn = botValues.length > 0 ? totalReturn(botValues, initialCapital) : null;
+    const botReturn = botValues.length > 0 ? totalReturn(botValues, totalInjectedFinal) : null;
     const spyReturn =
-      spyPortfolioValues.length > 1 ? totalReturn(spyPortfolioValues, initialCapital) : null;
-    const botCagr = botValues.length > 0 ? calcCAGR(botValues, initialCapital) : null;
+      spyPortfolioValues.length > 1 ? totalReturn(spyPortfolioValues, totalInjectedFinal) : null;
+    const botCagr = botValues.length > 0 ? calcCAGR(botValues, totalInjectedFinal) : null;
     const spyCagr =
-      spyPortfolioValues.length > 1 ? calcCAGR(spyPortfolioValues, initialCapital) : null;
+      spyPortfolioValues.length > 1 ? calcCAGR(spyPortfolioValues, totalInjectedFinal) : null;
     const latestValue = botValues.length > 0 ? botValues[botValues.length - 1] : null;
 
-    const annualizedVol = calcAnnualizedVol(botValues);
+    const annualizedVol = calcVolFromReturns(botAdjReturns);
     const spyAnnualizedVol =
-      spyPortfolioValues.length > 1 ? calcAnnualizedVol(spyPortfolioValues) : null;
-    const sortinoRatio = calcSortino(botValues);
+      spyAdjReturns.length > 0 ? calcVolFromReturns(spyAdjReturns) : null;
+    const sortinoRatio = calcSortinoFromReturns(botAdjReturns);
     const spySortinoRatio =
-      spyPortfolioValues.length > 1 ? calcSortino(spyPortfolioValues) : null;
+      spyAdjReturns.length > 0 ? calcSortinoFromReturns(spyAdjReturns) : null;
     const calmarRatio =
-      botValues.length > 0 ? calcCalmar(botValues, initialCapital) : null;
+      botValues.length > 0 ? calcCalmar(botValues, totalInjectedFinal) : null;
     const spyCalmarRatio =
-      spyPortfolioValues.length > 1 ? calcCalmar(spyPortfolioValues, initialCapital) : null;
+      spyPortfolioValues.length > 1 ? calcCalmar(spyPortfolioValues, totalInjectedFinal) : null;
 
     return NextResponse.json({
       mode,
       runId: runId ?? null,
       initialCapital,
+      investmentMode,
+      monthlyContribution,
       sharpe,
       spySharpe,
       maxDrawdown,

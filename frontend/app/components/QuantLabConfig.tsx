@@ -15,6 +15,8 @@ export interface QuantLabParams {
   max_allocation_pct: number;
   take_profit_pct: number;
   sentiment_weight: number;
+  investment_mode: "LUMP_SUM" | "PERIODIC";
+  monthly_contribution: number;
 }
 
 interface Props {
@@ -38,6 +40,8 @@ const DEFAULTS: QuantLabParams = {
   max_allocation_pct: 0.20,
   take_profit_pct: 0.0,
   sentiment_weight: 0.0,
+  investment_mode: "LUMP_SUM",
+  monthly_contribution: 500,
 };
 
 // ── Reusable primitives ───────────────────────────────────────────────────────
@@ -128,7 +132,7 @@ export default function QuantLabConfig({ onRunStart, isRunning }: Props) {
   }
 
   const fmtUSD = (v: number) =>
-    `$${(v / 1000).toFixed(0)}k`;
+    v >= 1_000 ? `$${(v / 1_000).toFixed(0)}k` : `$${v}`;
   const fmtX = (v: number) => `${v.toFixed(2)}×`;
   const fmtDays = (v: number) => `${v}d`;
   const fmtPct = (v: number) => `${Math.round(v * 100)}%`;
@@ -173,18 +177,71 @@ export default function QuantLabConfig({ onRunStart, isRunning }: Props) {
         </div>
       </div>
 
-      {/* ── Capital ────────────────────────────────────────────────────────── */}
+      {/* ── Investment mode selector ───────────────────────────────────────── */}
+      <div className="mb-4">
+        <FieldLabel label="Estrategia de Inversión" />
+        <div className="grid grid-cols-2 gap-2 mt-1">
+          {(
+            [
+              { value: "LUMP_SUM", label: "Capital Inicial Único" },
+              { value: "PERIODIC", label: "Aportaciones DCA" },
+            ] as const
+          ).map(({ value, label }) => (
+            <button
+              key={value}
+              disabled={isRunning}
+              onClick={() => {
+                set("investment_mode", value);
+                // Reset capital to a sensible default for the chosen mode
+                set("initial_capital", value === "LUMP_SUM" ? 100_000 : 5_000);
+              }}
+              className={`py-2 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-40 ${
+                params.investment_mode === value
+                  ? "bg-indigo-600 border-indigo-500 text-white"
+                  : "bg-gray-900 border-gray-700 text-gray-400 hover:border-indigo-600"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Capital (range adapts to selected mode) ────────────────────────── */}
       <SliderField
-        label="Initial Capital"
-        hint="$5k – $150k"
-        min={5000}
-        max={150000}
-        step={5000}
+        label={
+          params.investment_mode === "PERIODIC"
+            ? "Capital Inicial (Pool de inicio)"
+            : "Initial Capital"
+        }
+        hint={
+          params.investment_mode === "PERIODIC"
+            ? "$0 – $10k · pool de arranque"
+            : "$5k – $150k"
+        }
+        min={params.investment_mode === "PERIODIC" ? 0 : 5_000}
+        max={params.investment_mode === "PERIODIC" ? 10_000 : 150_000}
+        step={params.investment_mode === "PERIODIC" ? 500 : 5_000}
         value={params.initial_capital}
         format={fmtUSD}
         onChange={(v) => set("initial_capital", v)}
         disabled={isRunning}
       />
+
+      {/* ── Monthly contribution (DCA mode only) ───────────────────────────── */}
+      {params.investment_mode === "PERIODIC" && (
+        <SliderField
+          label="Aportación Mensual"
+          hint="inyectada cada 21 días hábiles"
+          min={100}
+          max={2_000}
+          step={50}
+          value={params.monthly_contribution}
+          format={(v) => `$${v}`}
+          onChange={(v) => set("monthly_contribution", v)}
+          disabled={isRunning}
+        />
+      )}
 
       {/* ── Alpha factor ───────────────────────────────────────────────────── */}
       <SliderField

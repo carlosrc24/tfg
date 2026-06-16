@@ -221,6 +221,8 @@ def run_backtest(
     max_allocation_pct: float = 0.20,
     take_profit_pct: float = 0.0,
     sentiment_weight: float = 0.0,
+    investment_mode: str = "LUMP_SUM",
+    monthly_contribution: float = 0.0,
     run_id: str | None = None,
     show_progress: bool = True,
     log_flush_fn=None,
@@ -247,6 +249,9 @@ def run_backtest(
     logger.info("  Max allocation  : %.0f%%", max_allocation_pct * 100)
     logger.info("  Take profit     : %.0f%%", take_profit_pct * 100)
     logger.info("  Sentiment weight: %.2f (ω)", sentiment_weight)
+    logger.info("  Investment mode : %s", investment_mode)
+    if investment_mode == "PERIODIC":
+        logger.info("  Monthly contrib : $%s", format(monthly_contribution, ",.2f"))
     logger.info("  Run ID          : %s", run_id or "CLI")
     logger.info("  Quant features  : Beta CAPM · GBM Vol · Sentiment EMA-5")
     logger.info("  Filters         : SMA-%d macro · Hysteresis ±5%% (uniform, no bypass)", trend_sma)
@@ -344,6 +349,14 @@ def run_backtest(
         take_profit_pct=take_profit_pct,
     )
 
+    # ── 7a. SPY benchmark portfolio tracking ──────────────────────────────────
+    # benchmark_value is stored as absolute USD so the metrics route can use it
+    # directly for both LUMP_SUM and PERIODIC modes without any reconstruction.
+    _first_spy_ts  = trading_days[0]
+    _first_spy_row = all_ohlc["SPY"][all_ohlc["SPY"].index == _first_spy_ts]
+    _first_spy_price = float(_first_spy_row["close"].iloc[0]) if not _first_spy_row.empty else 1.0
+    spy_accumulated_shares: float = initial_capital / _first_spy_price if _first_spy_price > 0 else 0.0
+
     # ── 7. Quant state: sentiment EMA and last-prob per symbol ────────────────
     _ema_alpha = 2 / (5 + 1)
     sentiment_ema: dict[str, float] = defaultdict(float)
@@ -395,7 +408,7 @@ def run_backtest(
         return indicators.get(f"sma_{trend_sma}")
 
     def _run_loop(progress_ctx=None, task_id=None) -> None:
-        nonlocal current_prices
+        nonlocal current_prices, spy_accumulated_shares
         for idx, ts_day in enumerate(trading_days):
             day = ts_day.date()
 
@@ -577,12 +590,31 @@ def run_backtest(
                     flush=True,
                 )
 
+            # ── DCA: monthly capital injection every 21 trading days ──────────
+            if investment_mode == "PERIODIC" and idx > 0 and idx % 21 == 0:
+                wallet.inject_capital(monthly_contribution)
+                if spy_close and spy_close > 0:
+                    spy_accumulated_shares += monthly_contribution / spy_close
+                logger.info(
+                    "[DCA] Day %d (%s): +$%.2f injected | "
+                    "Bot balance=$%.2f | SPY shares=%.6f",
+                    idx, day, monthly_contribution,
+                    wallet.balance, spy_accumulated_shares,
+                )
+
             # Daily cash interest (4% p.a. on idle balance, applied before snapshot)
             wallet.accrue_daily_cash_interest()
 
             # Daily equity snapshot
+            # benchmark_value is stored as absolute USD (spy_accumulated_shares × close)
+            # so the metrics route can use it directly for both LUMP_SUM and PERIODIC.
             port_value = wallet.portfolio_value(current_prices)
-            save_bt_equity(ts_day.isoformat(), port_value, spy_close, run_id)
+            spy_portfolio_value = (
+                spy_accumulated_shares * spy_close
+                if spy_close and spy_close > 0
+                else None
+            )
+            save_bt_equity(ts_day.isoformat(), port_value, spy_portfolio_value, run_id)
 
             # Progress heartbeat every 30 simulated days
             if idx % 30 == 0 or idx == total_days - 1:
@@ -659,7 +691,9 @@ if __name__ == "__main__":
     parser.add_argument("--beta-factor",        type=float, default=1.0,  help="Volatility appetite (scales order size by beta).")
     parser.add_argument("--max-allocation-pct", type=float, default=0.20, help="Max capital allocation per position (0.10–0.50).")
     parser.add_argument("--take-profit-pct",    type=float, default=0.30, help="Take-profit target above entry price (0.10–0.50).")
-    parser.add_argument("--sentiment-weight",   type=float, default=0.0,  help="Sentiment fusion weight ω (0.0–1.0).")
+    parser.add_argument("--sentiment-weight",    type=float, default=0.0,    help="Sentiment fusion weight ω (0.0–1.0).")
+    parser.add_argument("--investment-mode",     type=str,   default="LUMP_SUM", choices=["LUMP_SUM", "PERIODIC"], help="LUMP_SUM or PERIODIC DCA.")
+    parser.add_argument("--monthly-contribution",type=float, default=500.0, help="Monthly DCA injection in USD (PERIODIC mode only).")
     args = parser.parse_args()
 
     run_backtest(
@@ -675,4 +709,6 @@ if __name__ == "__main__":
         max_allocation_pct=args.max_allocation_pct,
         take_profit_pct=args.take_profit_pct,
         sentiment_weight=args.sentiment_weight,
+        investment_mode=args.investment_mode,
+        monthly_contribution=args.monthly_contribution,
     )

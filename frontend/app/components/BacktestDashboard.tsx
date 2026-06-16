@@ -22,6 +22,8 @@ interface MetricsData {
   mode: string;
   runId: string | null;
   initialCapital: number;
+  investmentMode?: string;
+  monthlyContribution?: number;
   sharpe: number | null;
   spySharpe: number | null;
   maxDrawdown: number | null;
@@ -37,7 +39,7 @@ interface MetricsData {
   calmarRatio: number | null;
   spyCalmarRatio: number | null;
   totalEquity: number | null;
-  equityHistory: { date: string; bot: number; spy: number | null }[];
+  equityHistory: { date: string; bot: number; spy: number | null; injected: number | null }[];
   dataPoints: number;
   error?: string;
 }
@@ -123,6 +125,7 @@ export default function BacktestDashboard() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [tradesRefreshKey, setTradesRefreshKey] = useState(0);
+  const [showBaseline, setShowBaseline] = useState(false);
 
   // Fetch metrics — optionally scoped to a run_id
   const fetchMetrics = useCallback((runId?: string | null) => {
@@ -295,6 +298,18 @@ export default function BacktestDashboard() {
                   Valor absoluto en USD · Ejecución al precio de apertura D+1 (sin data leakage)
                 </p>
               </div>
+              {data?.investmentMode === "PERIODIC" && (
+                <button
+                  onClick={() => setShowBaseline((v) => !v)}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors flex-shrink-0 ${
+                    showBaseline
+                      ? "bg-slate-700 border-slate-500 text-slate-200"
+                      : "bg-gray-900 border-gray-700 text-gray-400 hover:border-slate-500"
+                  }`}
+                >
+                  {showBaseline ? "Ocultar capital inyectado" : "Mostrar capital inyectado"}
+                </button>
+              )}
             </div>
 
             {(metricsLoading || (isRunning && !data)) && (
@@ -358,12 +373,20 @@ export default function BacktestDashboard() {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}`,
-                      name === "bot" ? "🤖 Bot Portfolio" : "📊 SPY Benchmark",
+                      name === "bot"
+                        ? "🤖 Bot Portfolio"
+                        : name === "injected"
+                        ? "💰 Capital Inyectado"
+                        : "📊 SPY Benchmark",
                     ]}
                   />
                   <Legend
                     formatter={(v) =>
-                      v === "bot" ? "🤖 Bot Portfolio" : "📊 SPY Benchmark"
+                      v === "bot"
+                        ? "🤖 Bot Portfolio"
+                        : v === "injected"
+                        ? "💰 Capital Inyectado"
+                        : "📊 SPY Benchmark"
                     }
                     wrapperStyle={{ color: "#9ca3af", fontSize: "12px" }}
                   />
@@ -389,6 +412,17 @@ export default function BacktestDashboard() {
                       strokeDasharray="6 3"
                       dot={false}
                       activeDot={{ r: 3, fill: "#10b981" }}
+                    />
+                  )}
+                  {showBaseline && (
+                    <Line
+                      type="monotone"
+                      dataKey="injected"
+                      stroke="#94a3b8"
+                      strokeWidth={1.5}
+                      strokeDasharray="4 2"
+                      dot={false}
+                      activeDot={{ r: 3, fill: "#94a3b8" }}
                     />
                   )}
                 </LineChart>

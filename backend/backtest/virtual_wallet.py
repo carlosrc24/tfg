@@ -109,6 +109,28 @@ class VirtualWallet:
         # Cumulative interest earned (visible to the engine for summary logging)
         self.total_interest_accrued: float = 0.0
 
+    # ── DCA capital injection ──────────────────────────────────────────────────
+
+    def inject_capital(self, amount: float) -> float:
+        """
+        Add a periodic DCA contribution to the wallet's cash balance and
+        scale all per-position USD caps proportionally so order sizing always
+        reflects the growing total capital base.
+        Returns the new cash balance.
+        """
+        self.balance        += amount
+        self.initial_balance += amount
+        self.max_long_usd   = round(self.initial_balance * self.max_allocation_pct, 2)
+        self.min_order_usd  = round(self.max_long_usd * 0.10, 2)
+        self.max_order_usd  = round(self.max_long_usd * 0.50, 2)
+        logger.info(
+            "INJECT +$%.2f → balance=$%.2f | max_long=$%.2f | "
+            "min_order=$%.2f | max_order=$%.2f",
+            amount, self.balance,
+            self.max_long_usd, self.min_order_usd, self.max_order_usd,
+        )
+        return self.balance
+
     # ── Cash interest accrual ──────────────────────────────────────────────────
 
     def accrue_daily_cash_interest(self) -> float:
